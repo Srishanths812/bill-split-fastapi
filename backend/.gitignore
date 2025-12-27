@@ -63,3 +63,4 @@ dist/
 # FastAPI / Uvicorn
 # ------------------------
 uvicorn.log
+.idea
