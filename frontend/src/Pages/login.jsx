@@ -37,52 +37,52 @@ const Login =()=>{
         }
     };
     return(
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4 font-sans">
     <Header />
     
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-        <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">Welcome Back!!!</h2>
+      <div className="bg-gray-900 p-8 rounded-lg shadow-xl w-full max-w-md border border-gray-700">
+        <h2 className="text-3xl font-bold text-center text-white mb-8">Welcome Back!!!</h2>
         <form onSubmit={formHandle} className="space-y-6">
           <div>
-            <label className="label text-gray-700">
+            <label className="label text-gray-300">
               Username
             </label>
             <input
               type="text"
               id="username"
-              className="input input-primary bg-white text-black w-full"
+              className="input input-primary bg-gray-800 text-white w-full border border-gray-600"
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
             />
-            <p className="label text-red-600">*required</p>
+            <p className="label text-red-400">*required</p>
           </div>
           <div>
-            <label className="label text-gray-700">
+            <label className="label text-gray-300">
               Password
             </label>
             <input
               type="password"
               id="password"
-              className="input input-primary bg-white text-black w-full"
+              className="input input-primary bg-gray-800 text-white w-full border border-gray-600"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <p className="label text-red-600 p-1">*required</p>
+            <p className="label text-red-400 p-1">*required</p>
           </div>
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md font-semibold hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+            className="w-full bg-gray-700 text-white py-2 px-4 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition ease-in-out duration-150"
           >
             Log In
           </button>
           <button
             type="button"
             onClick= {()=> Navigate("/signup")}
-            className="w-full bg-red-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2 transition ease-in-out duration-150"
+            className="w-full bg-red-700 text-white py-2 px-4 rounded-md font-semibold hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 transition ease-in-out duration-150"
           >
             Sign Up
           </button>
