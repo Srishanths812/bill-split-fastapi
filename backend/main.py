@@ -11,6 +11,7 @@ import os
 from bson.objectid import ObjectId
 import uuid
 import certifi
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -87,17 +88,30 @@ class DeleteAccountRequest(BaseModel):
 class GroupDetailsRequest(BaseModel):
     username: str
 
+# class CreateGroupRequest(BaseModel):
+#     groupName: str
+#     amount: float
+#     members: List[str]
+
+class GroupMember(BaseModel):
+    username: str
+
 class CreateGroupRequest(BaseModel):
     groupName: str
-    amount: float
-    members: List[str]
+    groupAdmin: str
+    members: List[GroupMember]
 
 class AddExpenseRequest(BaseModel):
     groupId: str
     paidBy: str
-    cost: float
+    total: float
     description: str
-    splits: List[dict]
+    category: str
+    split: dict
+
+
+class GroupIdRequest(BaseModel):
+    groupId: str
 
 class AddGroupMemberRequest(BaseModel):
     groupId: str
@@ -311,7 +325,7 @@ async def add_friend(request: FriendRequest):
 @app.post("/acceptfriend")
 async def accept_friend_request(request: FriendRequest):
     """Accept friend request"""
-    if not users_collection:
+    if users_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     # Add both users to each other's friends list
@@ -330,7 +344,7 @@ async def accept_friend_request(request: FriendRequest):
 @app.post("/deletefriendinv")
 async def decline_friend_request(request: FriendRequest):
     """Decline/delete friend request"""
-    if not users_collection:
+    if users_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     users_collection.update_one(
@@ -343,7 +357,7 @@ async def decline_friend_request(request: FriendRequest):
 @app.post("/friendlist")
 async def get_friends_list(request: ProfileDetailsRequest):
     """Get list of friends for a user"""
-    if not users_collection:
+    if users_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     user = users_collection.find_one({"username": request.username})
@@ -356,7 +370,7 @@ async def get_friends_list(request: ProfileDetailsRequest):
 @app.post("/deletefriend")
 async def delete_friend(request: FriendRequest):
     """Remove a friend"""
-    if not users_collection:
+    if users_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     users_collection.update_one(
@@ -374,7 +388,8 @@ async def delete_friend(request: FriendRequest):
 @app.post("/main_page_group_details")
 async def get_main_page_group_details(request: GroupDetailsRequest):
     """Get group details for main page"""
-    if not groups_collection:
+    if groups_collection is None:
+
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     groups = groups_collection.find({"members": request.username})
@@ -402,51 +417,82 @@ async def get_main_page_group_details(request: GroupDetailsRequest):
 
 @app.post("/create_group")
 async def create_group(request: CreateGroupRequest):
-    """Create a new group"""
-    if not groups_collection:
+    if groups_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
-    
+
+    members_list = [{"username": member.username, "amount": 0} for member in request.members]
+
+
     group = {
         "groupName": request.groupName,
-        "amount": request.amount,
-        "members": request.members,
+        "groupAdmin": request.groupAdmin,
+        "members": members_list,
         "createdAt": None
     }
-    
+
     result = groups_collection.insert_one(group)
-    
+
     return {
         "success": True,
         "message": "Group created successfully",
         "groupId": str(result.inserted_id)
     }
 
-@app.post("/add_expense")
+
+@app.post("/addexpense")
 async def add_expense(request: AddExpenseRequest):
-    """Add expense to group"""
-    if not expenses_collection:
+    if expenses_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
-    
+
+    splits_list = [
+        {"username": user, "amount": (request.total * percent) / 100}
+        for user, percent in request.split.items()
+        if percent > 0
+    ]
+
     expense = {
         "groupId": request.groupId,
         "paidBy": request.paidBy,
-        "cost": request.cost,
+        "cost": request.total,
         "description": request.description,
-        "splits": request.splits
+        "category": request.category,
+        "splits": splits_list,
+        "Day": datetime.utcnow()
     }
-    
+
     result = expenses_collection.insert_one(expense)
-    
+
     return {
         "success": True,
-        "message": "Expense added successfully",
         "expenseId": str(result.inserted_id)
     }
+
+@app.post("/expense_details")
+async def expense_details(request: GroupIdRequest):
+    if expenses_collection is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    expenses = expenses_collection.find({"groupId": request.groupId})
+
+    return [
+        {
+            "expenseId": str(exp["_id"]),
+            "paidBy": exp["paidBy"],
+            "cost": exp["cost"],
+            "description": exp["description"],
+            "category": exp["category"],
+            "splits": exp["splits"],
+            "Day": exp["Day"]
+        }
+        for exp in expenses
+    ]
+
 
 @app.get("/group/{groupId}")
 async def get_group_info(groupId: str):
     """Get group information"""
-    if not groups_collection:
+    if groups_collection is None:
+
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     try:
@@ -467,7 +513,7 @@ async def get_group_info(groupId: str):
 @app.get("/group/{groupId}/expenses")
 async def get_group_expenses(groupId: str):
     """Get expenses for a group"""
-    if not expenses_collection:
+    if expenses_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     expenses = expenses_collection.find({"groupId": groupId})
@@ -487,7 +533,8 @@ async def get_group_expenses(groupId: str):
 @app.post("/add_group_member")
 async def add_group_member(request: AddGroupMemberRequest):
     """Add member to group"""
-    if not groups_collection:
+    if groups_collection is None:
+
         raise HTTPException(status_code=500, detail="Database connection failed")
     
     try:
@@ -501,38 +548,52 @@ async def add_group_member(request: AddGroupMemberRequest):
         return {"success": False, "message": str(e)}
 
 @app.post("/group_all_details")
-async def get_group_all_details(request: AddExpenseRequest):
-    """Get all details of a group"""
-    if not groups_collection or not expenses_collection:
+async def get_group_all_details(request: GroupIdRequest):
+    if groups_collection is None or expenses_collection is None:
         raise HTTPException(status_code=500, detail="Database connection failed")
-    
-    try:
-        group = groups_collection.find_one({"_id": ObjectId(request.groupId)})
-        if not group:
-            return {"success": False, "message": "Group not found"}
-        
-        expenses = expenses_collection.find({"groupId": request.groupId})
-        expenses_list = []
-        
-        for exp in expenses:
-            expenses_list.append({
-                "expenseId": str(exp.get("_id")),
-                "paidBy": exp.get("paidBy"),
-                "cost": exp.get("cost"),
-                "description": exp.get("description"),
-                "splits": exp.get("splits", [])
-            })
-        
-        return {
-            "success": True,
-            "groupId": str(group.get("_id")),
-            "groupName": group.get("groupName"),
-            "amount": group.get("amount"),
-            "members": group.get("members", []),
-            "expenses": expenses_list
+
+    group = groups_collection.find_one({"_id": ObjectId(request.groupId)})
+    if not group:
+        return {"success": False, "message": "Group not found"}
+
+    expenses = expenses_collection.find({"groupId": request.groupId})
+    expenses_list = []
+
+    for exp in expenses:
+        expenses_list.append({
+            "expenseId": str(exp["_id"]),
+            "paidBy": exp["paidBy"],
+            "cost": exp["cost"],
+            "description": exp["description"],
+            "splits": exp.get("splits", [])
+        })
+
+    return {
+        "success": True,
+        "groupId": str(group["_id"]),
+        "groupName": group["groupName"],
+        "members": group["members"],
+        "expenses": expenses_list
+    }
+
+@app.post("/expense_details")
+async def expense_details(request: GroupIdRequest):
+    if expenses_collection is None:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    expenses = expenses_collection.find({"groupId": request.groupId})
+
+    return [
+        {
+            "expenseId": str(exp["_id"]),
+            "paidBy": exp["paidBy"],
+            "cost": exp["cost"],
+            "description": exp["description"],
+            "splits": exp.get("splits", [])
         }
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+        for exp in expenses
+    ]
+
 
 if __name__ == "__main__":
     print("\n" + "="*50)
@@ -541,4 +602,3 @@ if __name__ == "__main__":
     print("API Docs at: http://localhost:8000/docs")
     print("="*50 + "\n")
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
-
